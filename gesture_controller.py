@@ -21,8 +21,8 @@ TIP_OF_PINKY = 20
 
 # Action cooldowns
 last_action_time = 0
-action_cooldown = 500 # milliseconds
-CONTINUOUS_ACTION_COOLDOWN = 150 # milliseconds
+action_cooldown_ms = 500 # milliseconds
+CONTINUOUS_ACTION_COOLDOWN_MS = 150 # milliseconds
 
 # System Keys
 PAUSE_KEY = 'space'
@@ -59,3 +59,49 @@ def is_all_fingers_extended(hand_landmarks):
     thumb_extended = hand_landmarks.landmark[TIP_OF_THUMB].x < hand_landmarks.landmark[TIP_OF_THUMB - 1].x # assumes hand is facing palm-to-camera
 
     return index_extended and middle_extended and ring_extended and pinky_extended and thumb_extended
+
+def handle_gestures(hand_landmarks, width, height, current_time):
+    """
+    Main function for gesture recognition and system output.
+    This is the core business logic of the application and also the most confusing lol.
+    """
+    global last_action_time, PAUSE_KEY, VOLUME_UP_KEY, VOLUME_DOWN_KEY, action_cooldown_ms, CONTINUOUS_ACTION_COOLDOWN_MS
+    
+    # 1. Detect Pinch (Continuous Volume Control)
+    index_tip = hand_landmarks.landmark[TIP_OF_INDEX_FINGER]
+    thumb_tip = hand_landmarks.landmark[TIP_OF_THUMB]
+    dist = calculate_distance(index_tip, thumb_tip)
+
+    pinch_threshold = 0.05 # Normalized distance threshold for a "pinch"
+    
+    if dist < pinch_threshold:
+        # Pinch is active. Check Y-position to determine volume UP or DOWN.
+        
+        # Only allow volume commands every 150ms for smoother, continuous control
+        if current_time - last_action_time > CONTINUOUS_ACTION_COOLDOWN_MS: 
+            
+            # Get the Index Finger's pixel Y position
+            index_x, index_y, _ = get_landmark_coords(hand_landmarks, TIP_OF_INDEX_FINGER, width, height)
+            
+            # Divide the screen into vertical zones based on the frame height
+            screen_mid_y = height / 2
+
+            if index_y < screen_mid_y - 50:
+                # Hand is in the top zone (Higher volume)
+                pyautogui.press(VOLUME_UP_KEY)
+                cv2.putText(frame, "Volume Up (Pinch High)", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            elif index_y > screen_mid_y + 50:
+                # Hand is in the bottom zone (Lower volume)
+                pyautogui.press(VOLUME_DOWN_KEY)
+                cv2.putText(frame, "Volume Down (Pinch Low)", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                
+            last_action_time = current_time
+
+    # 2. Detect Open Palm (Discrete Play/Pause)
+    elif is_all_fingers_extended(hand_landmarks):
+        # Only allow Play/Pause command after a 500ms cooldown
+        if current_time - last_action_time > action_cooldown_ms:
+            pyautogui.press(PAUSE_KEY)
+            cv2.putText(frame, "Play/Pause Toggle (Open Palm)", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+            last_action_time = current_time
+            print(f"Action triggered at {time.strftime('%H:%M:%S')}: Play/Pause Toggled")
