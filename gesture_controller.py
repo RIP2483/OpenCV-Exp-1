@@ -15,3 +15,14 @@ mp_draw = mp.solutions.drawing_utils
 TIP_OF_THUMB = 4
 TIP_OF_INDEX_FINGER = 8
 TIP_OF_MIDDLE_FINGER = 12
+# will add more later
+
+# Action cooldowns
+last_action_time = 0
+action_cooldown = 500 # milliseconds
+CONTINUOUS_ACTION_COOLDOWN = 150 # milliseconds
+
+# System Keys
+PAUSE_KEY = 'space'
+VOLUME_UP_KEY = 'volumeup'
+VOLUME_DOWN_KEY = 'volumedown'
