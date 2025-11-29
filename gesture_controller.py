@@ -15,6 +15,8 @@ mp_draw = mp.solutions.drawing_utils
 TIP_OF_THUMB = 4
 TIP_OF_INDEX_FINGER = 8
 TIP_OF_MIDDLE_FINGER = 12
+TIP_OF_RING_FINGER = 16
+TIP_OF_PINKY = 20
 # will add more later
 
 # Action cooldowns
@@ -44,3 +46,16 @@ def is_finger_extended(hand_landmarks, tip_id, pip_id):
     tip = hand_landmarks.landmark[tip_id]
     pip = hand_landmarks.landmark[pip_id]
     return tip.y < pip.y  # Assuming y=0 is at the top of the image
+
+def is_all_fingers_extended(hand_landmarks):
+    """
+    Checks if all fingers are extended and by doing so also determining the open palm gesture.
+    """
+    index_extended = is_finger_extended(hand_landmarks, TIP_OF_INDEX_FINGER, TIP_OF_INDEX_FINGER - 2)
+    middle_extended = is_finger_extended(hand_landmarks, TIP_OF_MIDDLE_FINGER, TIP_OF_MIDDLE_FINGER - 2)
+    ring_extended = is_finger_extended(hand_landmarks, TIP_OF_RING_FINGER, TIP_OF_RING_FINGER - 2)
+    pinky_extended = is_finger_extended(hand_landmarks, TIP_OF_PINKY, TIP_OF_PINKY - 2)
+    # Simple check for thumb extension (tip is outside of the PIP joint's shadow)
+    thumb_extended = hand_landmarks.landmark[TIP_OF_THUMB].x < hand_landmarks.landmark[TIP_OF_THUMB - 1].x # assumes hand is facing palm-to-camera
+
+    return index_extended and middle_extended and ring_extended and pinky_extended and thumb_extended
