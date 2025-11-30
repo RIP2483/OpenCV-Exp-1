@@ -25,6 +25,9 @@ last_action_time = 0
 action_cooldown_ms = 500 # milliseconds
 CONTINUOUS_ACTION_COOLDOWN_MS = 150 # milliseconds
 
+# for determining whether the pause gesture is active
+is_paused_gesture_active = False
+
 # System Keys
 PAUSE_KEY = 'space'
 VOLUME_UP_KEY = 'volumeup'
@@ -77,7 +80,7 @@ def handle_gestures(frame, hand_landmarks, width, height, current_time):
     Main function for gesture recognition and system output.
     This is the core business logic of the application and also the most confusing lol.
     """
-    global last_action_time, PAUSE_KEY, VOLUME_UP_KEY, VOLUME_DOWN_KEY, action_cooldown_ms, CONTINUOUS_ACTION_COOLDOWN_MS
+    global last_action_time, PAUSE_KEY, VOLUME_UP_KEY, VOLUME_DOWN_KEY, action_cooldown_ms, CONTINUOUS_ACTION_COOLDOWN_MS, is_paused_gesture_active
     
     # this detects the pinch
     index_tip = hand_landmarks.landmark[TIP_OF_INDEX_FINGER]
@@ -108,15 +111,29 @@ def handle_gestures(frame, hand_landmarks, width, height, current_time):
                 cv2.putText(frame, "Volume Down (Pinch Low)", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                 
             last_action_time = current_time
+        is_paused_gesture_active = False
 
     # Detect Open Palm (Discrete Play/Pause)
-    elif is_all_fingers_extended(hand_landmarks):
-        # Only allow Play/Pause command after a 500ms cooldown
-        if current_time - last_action_time > action_cooldown_ms:
-            pyautogui.press(PAUSE_KEY)
-            cv2.putText(frame, "Play/Pause Toggle (Open Palm)", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
-            last_action_time = current_time
-            print(f"Action triggered at {time.strftime('%H:%M:%S')}: Play/Pause Toggled")
+    else:
+        palm_open = is_all_fingers_extended(hand_landmarks)
+        
+        if palm_open and not is_paused_gesture_active:
+            # Gesture is active AND it was NOT active in the previous cycle.
+            
+            # Check cooldown only when the gesture first appears
+            if current_time - last_action_time > action_cooldown_ms:
+                pyautogui.press(PAUSE_KEY)
+                cv2.putText(frame, "Play/Pause Toggle (Open Palm)", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+                last_action_time = current_time
+                print(f"Action triggered at {time.strftime('%H:%M:%S')}: Play/Pause Toggled")
+            
+            # Set flag to True to prevent re-triggering until hand is closed
+            is_paused_gesture_active = True 
+            
+        elif not palm_open and is_paused_gesture_active:
+            # RESET CONDITION: Gesture is inactive AND it was previously active.
+            # This is the "release" event, preparing the system for the next Play/Pause command.
+            is_paused_gesture_active = False
 
 # --- Main Loop ---
 cap = cv2.VideoCapture(0) # 0 means to use the defaulkt webcam
